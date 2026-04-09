@@ -1,0 +1,70 @@
+name: Compile Quarkdown to PDF
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: quarkdown-labs/setup-quarkdown@v1
+
+      - name: Compile .qd to PDF
+        run: quarkdown c repertorio_folclore.qd --pdf
+
+      - name: Prepare GitHub Pages content
+        run: |
+          mkdir -p _site
+          cp repertorio_folclore/repertorio_folclore.pdf _site/repertorio_folclore.pdf
+          cat > _site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="es">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Repertorio Folclórico Argentino</title>
+            <style>
+              body { margin: 0; font-family: sans-serif; background: #f5f5f5; }
+              header { background: #2c3e50; color: white; padding: 1rem 2rem; }
+              main { display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+              iframe { width: 100%; max-width: 900px; height: 85vh; border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+              a.download { margin-top: 1rem; padding: 0.6rem 1.4rem; background: #2c3e50; color: white; border-radius: 4px; text-decoration: none; }
+              a.download:hover { background: #1a252f; }
+            </style>
+          </head>
+          <body>
+            <header><h1>Repertorio Folclórico Argentino</h1></header>
+            <main>
+              <iframe src="repertorio_folclore.pdf"></iframe>
+              <a class="download" href="repertorio_folclore.pdf" download>⬇ Descargar PDF</a>
+            </main>
+          </body>
+          </html>
+          EOF
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: compile
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
